@@ -1,3 +1,13 @@
+---
+title: Daily Alamdaar
+emoji: 📰
+colorFrom: green
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # Daily Alamdaar - E-Paper Website
 
 Bilingual (English / Urdu) e-paper site for Daily Alamdaar, Islamabad.
