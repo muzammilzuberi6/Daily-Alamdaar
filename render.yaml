@@ -1,0 +1,28 @@
+# Render blueprint for Daily Alamdaar.
+# Free plan:  site works, but uploaded news/e-paper are lost whenever Render restarts the service.
+# Starter plan + disk (about $7/month): everything is kept. Uncomment the "disk" block and set plan: starter.
+services:
+  - type: web
+    name: dailyalamdaar
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/settings
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: ADMIN_USER
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false        # you type this in the Render dashboard
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SITE_URL
+        value: https://dailyalamdaar.onrender.com
+      # - key: DATA_DIR
+      #   value: /var/data
+    # disk:
+    #   name: alamdaar-data
+    #   mountPath: /var/data
+    #   sizeGB: 5

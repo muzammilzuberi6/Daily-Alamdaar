@@ -19,8 +19,9 @@ const SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('he
 if (!ADMIN_PASSWORD) { console.error('ADMIN_PASSWORD missing in .env'); process.exit(1); }
 
 const ROOT = __dirname;
-const DATA_FILE = path.join(ROOT, 'data', 'editions.json');
-const UPLOADS = path.join(ROOT, 'uploads');
+const STORE = process.env.DATA_DIR || ROOT; // set DATA_DIR to a persistent disk when hosting
+const DATA_FILE = path.join(STORE, 'data', 'editions.json');
+const UPLOADS = path.join(STORE, 'uploads');
 fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
 fs.mkdirSync(UPLOADS, { recursive: true });
 
@@ -32,9 +33,9 @@ const validDate = d => DATE_RE.test(d) && !isNaN(Date.parse(d + 'T00:00:00Z'));
 
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 const writeJson = (f, o) => { fs.writeFileSync(f + '.tmp', JSON.stringify(o, null, 2)); fs.renameSync(f + '.tmp', f); };
-const SETTINGS_FILE = path.join(ROOT, 'data', 'settings.json');
-const MESSAGES_FILE = path.join(ROOT, 'data', 'messages.json');
-const ADMIN_FILE = path.join(ROOT, 'data', 'admin.json');
+const SETTINGS_FILE = path.join(STORE, 'data', 'settings.json');
+const MESSAGES_FILE = path.join(STORE, 'data', 'messages.json');
+const ADMIN_FILE = path.join(STORE, 'data', 'admin.json');
 const DEFAULT_SETTINGS = {
   chiefEditor: { en: 'Khalid Hussain Zuberi', ur: 'خالد حسین زبیری', phone: '03235419676', email: 'dailyalamdaar@gmail.com' },
   chiefExec: { en: 'Humair Alam Zuberi', ur: 'حمیر عالم زبیری' },
@@ -297,7 +298,7 @@ app.delete('/api/admin/messages/:id', requireAdmin, (req, res) => {
 
 // ---------- NEWS ARTICLES ----------
 const CATS = ['pakistan', 'islamabad', 'world', 'business', 'sports', 'entertainment', 'opinion'];
-const ARTICLES_FILE = path.join(ROOT, 'data', 'articles.json');
+const ARTICLES_FILE = path.join(STORE, 'data', 'articles.json');
 const AUPLOADS = path.join(UPLOADS, 'articles');
 fs.mkdirSync(AUPLOADS, { recursive: true });
 const loadA = () => readJson(ARTICLES_FILE, []);
