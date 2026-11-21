@@ -4,3 +4,4 @@ uploads
 data
 *.log
 WhatsApp Image*
+*.err
