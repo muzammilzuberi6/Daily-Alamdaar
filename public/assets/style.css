@@ -39,7 +39,7 @@ nav.main a.on{background:var(--green);color:#fff}
 .rule{height:4px;background:linear-gradient(90deg,var(--orange) 0 33%,var(--green) 33% 100%)}
 
 @media(max-width:860px){
-  .brand img.cal,.brand .sep{display:none}.brand img.word{height:46px}
+  .brand{gap:12px}.brand img.word{height:38px}.brand img.cal{height:46px}.brand .sep{height:34px}
   .menu-btn{display:block}
   nav.main{position:absolute;inset-inline:0;top:100%;background:#fff;border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;padding:12px 20px 18px;display:none;gap:4px;box-shadow:var(--shadow)}
   nav.main.open{display:flex}
