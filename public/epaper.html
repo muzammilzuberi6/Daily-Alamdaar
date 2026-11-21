@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Alamdaar | Today's E-Paper</title>
+<meta name="description" content="Read today's Daily Alamdaar newspaper online, page by page. Islamabad, Pakistan. Urdu and English.">
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <section class="edbar" id="edbar" hidden><div class="wrap">
+    <div class="edtitle"><h1 id="edDate"></h1><div class="edmeta" id="edMeta"></div></div>
+    <div class="edtools">
+      <input type="date" id="pick" aria-label="Pick date">
+      <button class="btn ghost" id="latestBtn" data-i="latest"></button>
+      <button class="btn ghost" id="shareBtn">⤴ <span data-i="share"></span></button>
+      <a class="btn ghost" id="dlBtn" download>⬇ <span data-i="download"></span></a>
+      <a class="btn ghost" id="waBtn" target="_blank" rel="noopener">💬 <span data-i="whatsapp"></span></a>
+      <button class="btn ghost" id="prBtn">🖨 <span data-i="print"></span></button>
+      <a class="btn" id="pdfBtn">⬇ <span data-i="pdf"></span></a>
+    </div>
+  </div></section>
+
+  <div class="wrap">
+    <div class="reader" id="reader" hidden>
+      <aside class="rail" id="rail"></aside>
+      <section class="stage">
+        <button class="nav-ar prev" id="prevA" aria-label="Previous">‹</button>
+        <button class="nav-ar next" id="nextA" aria-label="Next">›</button>
+        <div class="sheet" id="sheet"><img id="pageImg" alt=""></div>
+        <div class="pager">
+          <button class="btn ghost sm" id="prevB">‹ <span data-i="prev"></span></button>
+          <div class="count" id="count"></div>
+          <button class="btn ghost sm" id="nextB"><span data-i="next"></span> ›</button>
+        </div>
+      </section>
+    </div>
+    <div class="empty" id="empty" hidden><h2 id="emT"></h2><p id="emS"></p></div>
+  </div>
+</main>
+<div id="ftr"></div>
+
+<div class="lb" id="lb">
+  <div class="lb-top">
+    <div class="grp"><button id="lbPrev">‹</button><button id="lbNext">›</button><span id="lbCount" style="align-self:center;font-weight:600"></span></div>
+    <div class="grp"><button id="lbZoom">＋</button><button id="lbClose">✕</button></div>
+  </div>
+  <div class="lb-body" id="lbBody"><img id="lbImg" alt=""></div>
+</div>
+
+<script src="/assets/app.js"></script>
+<script>
+App.mount('epaper');
+let ed = null, cur = 0;
+const $ = id => document.getElementById(id);
+const dateParam = () => new URLSearchParams(location.search).get('date');
+
+async function load() {
+  const d = dateParam();
+  try {
+    ed = await App.api(d ? `/api/editions/${d}` : '/api/editions/latest');
+    $('edbar').hidden = false; $('reader').hidden = false; $('empty').hidden = true;
+    const p = Number(new URLSearchParams(location.search).get('page')) || 1;
+    cur = Math.min(Math.max(p, 1), ed.pages.length) - 1;
+    $('pick').value = ed.date;
+    render(); buildRail();
+    try { const k = 'v' + ed.date; if (!sessionStorage.getItem(k)) { sessionStorage.setItem(k, 1); fetch('/api/view/' + ed.date, { method: 'POST' }); } } catch {}
+  } catch {
+    ed = null; $('edbar').hidden = !d; $('reader').hidden = true; $('empty').hidden = false;
+    $('pick').value = d || ''; renderEmpty(!!d);
+  }
+}
+function renderEmpty(notFound) { $('emT').textContent = App.t(notFound ? 'notFound' : 'noEdition'); $('emS').textContent = App.t(notFound ? 'notFoundSub' : 'noEditionSub'); }
+function buildRail() {
+  $('rail').innerHTML = ed.pages.map((p, i) => `<button class="th" data-idx="${i}" aria-label="${App.t('page')} ${i + 1}"><img src="${p.thumb}" alt="" loading="lazy"><span>${App.num(i + 1)}</span></button>`).join('');
+  $('rail').onclick = e => { const b = e.target.closest('.th'); if (b) go(+b.dataset.idx); };
+}
+function render() {
+  if (!ed) return;
+  const p = ed.pages[cur], img = $('pageImg');
+  $('sheet').classList.add('loading');
+  img.onload = () => $('sheet').classList.remove('loading');
+  img.src = p.full; img.alt = `${App.t('page')} ${cur + 1}`;
+  $('edDate').textContent = App.fmtDate(ed.date);
+  const meta = [];
+  if (ed.vol) meta.push(`<span class="chip">${App.t('vol')}: ${ed.vol}</span>`);
+  if (ed.issue) meta.push(`<span class="chip">${App.t('issue')}: ${App.num(ed.issue)}</span>`);
+  meta.push(`<span class="chip">${App.t('pages')}: ${App.num(ed.pageCount)}</span>`);
+  $('edMeta').innerHTML = meta.join('');
+  $('count').textContent = `${App.t('page')} ${App.num(cur + 1)} ${App.t('of')} ${App.num(ed.pageCount)}`;
+  const rtl = App.lang === 'ur'; // in RTL, "previous" is on the right; keep logical order
+  [$('prevA'), $('prevB')].forEach(b => b.disabled = cur === 0);
+  [$('nextA'), $('nextB')].forEach(b => b.disabled = cur === ed.pages.length - 1);
+  document.querySelectorAll('#rail .th').forEach((t, i) => t.classList.toggle('on', i === cur));
+  const on = document.querySelector('#rail .th.on'); on && on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  $('pdfBtn').href = '/api/editions/' + ed.date + '/pdf';
+  $('waBtn').href = 'https://wa.me/?text=' + encodeURIComponent('Daily Alamdaar ' + ed.date + ' - ' + location.origin + '/epaper?date=' + ed.date);
+  $('dlBtn').href = p.full.split('?')[0]; $('dlBtn').download = `alamdaar-${ed.date}-page-${cur + 1}.webp`;
+  document.title = `Daily Alamdaar | ${ed.date} · ${App.t('page')} ${cur + 1}`;
+  const u = new URL(location); u.searchParams.set('date', ed.date); u.searchParams.set('page', cur + 1);
+  history.replaceState(null, '', u);
+  if (ed.pages[cur + 1]) new Image().src = ed.pages[cur + 1].full; // preload next
+  if ($('lb').classList.contains('open')) lbRender();
+}
+function go(i) { if (!ed || i < 0 || i >= ed.pages.length) return; cur = i; render(); }
+
+$('prevA').onclick = $('prevB').onclick = () => go(cur - 1);
+$('nextA').onclick = $('nextB').onclick = () => go(cur + 1);
+$('pick').onchange = e => { if (e.target.value) location.href = `/epaper?date=${e.target.value}`; };
+$('prBtn').onclick = () => { const w = open('', '_blank'); if (!w) return; w.document.write('<img src="' + location.origin + ed.pages[cur].full + '" style="width:100%" onload="print();close()">'); w.document.close(); };
+$('latestBtn').onclick = () => location.href = '/epaper';
+$('shareBtn').onclick = async () => {
+  const url = location.href;
+  if (navigator.share) { try { await navigator.share({ title: 'Daily Alamdaar', url }); return; } catch {} }
+  try { await navigator.clipboard.writeText(url); App.toast(App.t('copied')); } catch { prompt('', url); }
+};
+
+/* lightbox */
+let zoomed = false;
+function lbRender() {
+  const img = $('lbImg'); img.src = ed.pages[cur].full; zoomed = false; img.classList.remove('z');
+  $('lbCount').textContent = `${App.num(cur + 1)} / ${App.num(ed.pageCount)}`;
+}
+function lbOpen() { if (!ed) return; $('lb').classList.add('open'); document.body.style.overflow = 'hidden'; lbRender(); }
+function lbClose() { $('lb').classList.remove('open'); document.body.style.overflow = ''; }
+function lbToggle() {
+  const img = $('lbImg'); zoomed = !zoomed; img.classList.toggle('z', zoomed);
+  img.style.setProperty('--zw', Math.max(1800, innerWidth * 1.6) + 'px');
+  $('lbZoom').textContent = zoomed ? '－' : '＋';
+}
+$('sheet').onclick = lbOpen; $('lbClose').onclick = lbClose; $('lbZoom').onclick = lbToggle; $('lbImg').onclick = lbToggle;
+$('lbPrev').onclick = () => go(cur - 1); $('lbNext').onclick = () => go(cur + 1);
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  const fwd = App.lang === 'ur' ? 'ArrowLeft' : 'ArrowRight', back = App.lang === 'ur' ? 'ArrowRight' : 'ArrowLeft';
+  if (e.key === fwd) go(cur + 1); else if (e.key === back) go(cur - 1);
+  else if (e.key === 'Escape') lbClose();
+});
+// swipe on touch
+let sx = null;
+$('sheet').addEventListener('touchstart', e => sx = e.touches[0].clientX, { passive: true });
+$('sheet').addEventListener('touchend', e => {
+  if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; sx = null;
+  if (Math.abs(dx) > 60) go(cur + ((dx < 0) !== (App.lang === 'ur') ? 1 : -1));
+});
+window.addEventListener('langchange', () => { render(); if (!ed) renderEmpty(!!dateParam()); if (ed) buildRail(), render(); });
+load();
+</script>
+</body>
+</html>

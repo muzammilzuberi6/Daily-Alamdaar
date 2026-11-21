@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Archive | Daily Alamdaar</title>
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <section class="page-head"><div class="wrap"><h1 data-i="archiveTitle"></h1><p data-i="archiveSub"></p></div></section>
+  <div class="wrap">
+    <div class="filters"><label data-i="jump"></label><input type="date" id="jump"></div>
+    <div id="list"></div>
+  </div>
+</main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+App.mount('archive');
+let all = [];
+function draw() {
+  const box = document.getElementById('list');
+  if (!all.length) { box.innerHTML = `<div class="empty"><p>${App.t('none')}</p></div>`; return; }
+  const groups = {};
+  all.forEach(e => (groups[e.date.slice(0, 7)] ||= []).push(e));
+  box.innerHTML = Object.keys(groups).sort().reverse().map(m => `
+    <div class="month"><h2>${App.monthLabel(m)}</h2></div>
+    <div class="grid">${groups[m].map(e => `
+      <a class="card" href="/epaper?date=${e.date}">
+        <div class="cv"><img src="${e.pages[0].thumb}" alt="" loading="lazy"></div>
+        <div class="ci"><b>${App.fmtDate(e.date)}</b><small>${App.t('issue')} ${App.num(e.issue || '-')} · ${App.num(e.pageCount)} ${App.t('pages')}</small></div>
+      </a>`).join('')}</div>`).join('');
+}
+document.getElementById('jump').onchange = e => e.target.value && (location.href = `/epaper?date=${e.target.value}`);
+window.addEventListener('langchange', draw);
+App.api('/api/editions').then(l => { all = l; draw(); }).catch(draw);
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>News | Daily Alamdaar</title>
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <section class="cat-head"><div class="wrap"><h1 id="ct"></h1></div></section>
+  <div class="wrap" style="padding-block:30px">
+    <div class="cols"><div><div class="grid3" id="list" style="grid-template-columns:repeat(2,1fr)"></div>
+      <div class="more-wrap"><button class="btn ghost" id="more" hidden></button></div></div>
+      <aside><div class="side-box"><h3 id="popT"></h3><div id="pop"></div></div></aside></div>
+  </div>
+</main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+const cat = location.pathname.split('/').pop();
+App.mount(cat);
+const $ = id => document.getElementById(id);
+let items = [], total = 0;
+function draw() {
+  $('ct').textContent = App.catName(cat); document.title = App.catName(cat) + ' | Daily Alamdaar';
+  $('list').innerHTML = items.length ? items.map(a => App.cardHtml(a, { size: 'm', showCat: false })).join('')
+    : `<div class="empty" style="grid-column:1/-1"><h2 class="serif" style="font-family:var(--serif)">${App.t('noNews')}</h2><p>${App.t('noNewsSub')}</p></div>`;
+  $('more').hidden = items.length >= total; $('more').textContent = App.t('loadMore');
+  $('popT').textContent = App.t('mostRead');
+}
+async function load(more) {
+  const off = more ? items.length : 0;
+  // first page prefers the reader's language; "load more" pages go through every story
+  const url = off ? `/api/articles?category=${cat}&limit=12&offset=${off}` : `/api/articles?category=${cat}&lang=${App.lang}&limit=12`;
+  try {
+    const r = await App.api(url);
+    if (off) items = items.concat(r.items.filter(a => !items.some(x => x.id === a.id))); else items = r.items;
+    total = r.total;
+  } catch {}
+  draw();
+}
+$('more').onclick = () => load(true);
+window.addEventListener('langchange', () => load());
+load();
+App.api(`/api/articles?category=${cat}&sort=popular&limit=5&lang=${App.lang}`).then(r => { $('pop').innerHTML = r.items.map((a, i) => App.rowHtml(a, i)).join(''); }).catch(() => {});
+window.addEventListener('langchange', () => App.api(`/api/articles?category=${cat}&sort=popular&limit=5&lang=${App.lang}`).then(r => { $('pop').innerHTML = r.items.map((a, i) => App.rowHtml(a, i)).join(''); }));
+</script>
+</body>
+</html>

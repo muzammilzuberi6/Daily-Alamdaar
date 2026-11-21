@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Alamdaar | Latest News from Pakistan - Urdu & English</title>
+<meta name="description" content="Daily Alamdaar - Pakistan, Islamabad, world, business, sports and entertainment news in Urdu and English. Read the e-paper online.">
+<meta property="og:title" content="Daily Alamdaar | Latest News from Pakistan"><meta property="og:image" content="/assets/logo-wordmark.png"><meta property="og:type" content="website">
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="alternate" type="application/rss+xml" title="Daily Alamdaar" href="/rss.xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main><div class="wrap" id="home"></div></main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+App.mount('home');
+let data = null, paper = null;
+const $ = id => document.getElementById(id);
+
+function block(c, items) {
+  const [first, ...rest] = items;
+  return `<section class="blk"><div class="blk-h"><h2>${App.catName(c)}</h2><a href="/category/${c}">${App.t('viewAll')} ›</a></div>
+    <div class="sec2">${App.cardHtml(first, { size: 'l', showCat: false })}<div class="list">${rest.map(a => App.cardHtml(a, { size: 's', showCat: false })).join('')}</div></div></section>`;
+}
+function draw() {
+  const root = $('home');
+  if (!data) return;
+  if (!data.total) {
+    root.innerHTML = `<div class="empty-home"><img src="/assets/logo-calligraphy.png" alt=""><h2 class="serif" style="font-family:var(--serif)">${App.t('noNews')}</h2><p style="color:var(--muted);margin:8px 0 20px">${App.t('noNewsSub')}</p><a class="btn orange" href="/epaper">${App.t('readEpaper')}</a></div>`;
+    return;
+  }
+  const hero = data.lead ? `<section class="hero">
+    <div>${App.cardHtml(data.lead, { size: 'xl' })}</div>
+    <div class="hero-side"><div class="blk-h" style="margin:0 0 4px"><h2>${App.t('topStories')}</h2></div>${data.top.map(a => App.cardHtml(a, { size: 's' })).join('')}</div></section>` : '';
+  const secs = Object.entries(data.sections).map(([c, l]) => block(c, l)).join('');
+  const side = `
+    ${paper ? `<div class="side-box paper-box"><h3>${App.t('todaysPaper')}</h3><a href="/epaper"><img class="fp" src="${paper.pages[0].thumb}" alt=""></a><p>${App.t('epaperPromo')}</p><a class="btn orange" href="/epaper">${App.t('readEpaper')}</a></div>` : ''}
+    <div class="side-box"><h3>${App.t('latestNews')}</h3><div class="latest-list">${data.latest.slice(0, 8).map(a => App.rowHtml(a)).join('')}</div></div>
+    ${data.popular.length ? `<div class="side-box"><h3>${App.t('mostRead')}</h3>${data.popular.map((a, i) => App.rowHtml(a, i)).join('')}</div>` : ''}`;
+  root.innerHTML = hero + `<div class="cols"><div>${secs}</div><aside>${side}</aside></div>`;
+}
+async function load() {
+  try { data = await App.api('/api/home?lang=' + App.lang); } catch { data = { total: 0 }; }
+  draw();
+}
+App.api('/api/editions/latest').then(p => { paper = p; draw(); }).catch(() => {});
+window.addEventListener('langchange', load);
+load();
+</script>
+</body>
+</html>

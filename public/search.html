@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Search | Daily Alamdaar</title>
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <section class="cat-head"><div class="wrap"><h1 id="st"></h1></div></section>
+  <div class="wrap" style="padding-block:30px">
+    <div class="grid3" id="list"></div>
+    <div class="more-wrap"><button class="btn ghost" id="more" hidden></button></div>
+  </div>
+</main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+App.mount('');
+const $ = id => document.getElementById(id);
+const q = (new URLSearchParams(location.search).get('q') || '').trim();
+document.querySelector('.search input').value = q;
+let items = [], total = 0, loaded = false;
+function draw() {
+  $('st').textContent = q ? `${App.num(total)} ${App.t('searchResults')} "${q}"` : App.t('searchTitle');
+  $('list').innerHTML = !q ? `<div class="empty" style="grid-column:1/-1"><p>${App.t('enterQuery')}</p></div>`
+    : items.length ? items.map(a => App.cardHtml(a, { size: 'm' })).join('')
+    : loaded ? `<div class="empty" style="grid-column:1/-1"><p>${App.t('noResults')}</p></div>` : '';
+  $('more').hidden = items.length >= total; $('more').textContent = App.t('loadMore');
+}
+async function load() {
+  if (!q) return draw();
+  try { const r = await App.api(`/api/articles?q=${encodeURIComponent(q)}&limit=12&offset=${items.length}`); items = items.concat(r.items); total = r.total; } catch {}
+  loaded = true; draw();
+}
+$('more').onclick = load;
+window.addEventListener('langchange', draw);
+draw(); load();
+</script>
+</body>
+</html>

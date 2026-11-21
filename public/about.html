@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Us | Daily Alamdaar</title>
+<meta name="description" content="Daily Alamdaar is a bilingual (Urdu and English) ABC certified daily newspaper from Islamabad, Pakistan.">
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <section class="page-head"><div class="wrap"><h1 data-i="aboutTitle"></h1></div></section>
+  <div class="wrap"><div class="prose">
+    <p data-i="aboutP1"></p><p data-i="aboutP2"></p>
+    <h2 data-i="team"></h2>
+    <div class="people">
+      <div class="person"><small data-i="chiefEditor"></small><b id="n1"></b></div>
+      <div class="person"><small data-i="chiefExec"></small><b id="n2"></b></div>
+      <div class="person"><small data-i="publisher"></small><b id="n3"></b></div>
+    </div>
+    <h2 data-i="contact"></h2>
+    <div class="contact" id="ct"></div>
+    <p style="margin-top:20px"><a class="btn" href="/contact" data-i="writeUs"></a></p>
+  </div></div>
+</main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+App.mount('about');
+function draw() {
+  n1.textContent = App.name('chiefEditor'); n2.textContent = App.name('chiefExec'); n3.textContent = App.name('publisher');
+  const s = App.settings; if (!s) return;
+  ct.innerHTML = `<div><small>${App.t('address')}</small>${App.addr()}</div>` +
+    `<div><small>${App.t('phone')}</small>${s.phones.map(p => `<a href="${App.phoneHref(p)}" dir="ltr" style="display:inline-block;margin-inline-end:14px">${p}</a>`).join('')}</div>` +
+    `<div><small>${App.t('email')}</small><a href="mailto:${s.email}">${s.email}</a></div>`;
+}
+draw(); window.addEventListener('langchange', draw); window.addEventListener('settings', draw);
+</script>
+</body>
+</html>

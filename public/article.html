@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Alamdaar</title>
+<link rel="icon" href="/assets/logo-calligraphy.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+<div id="hdr"></div>
+<main>
+  <div class="wrap"><article class="art" id="art"></article></div>
+  <div class="wrap related" id="rel" hidden><div class="blk-h"><h2 id="relT"></h2></div><div class="grid4" id="relG"></div></div>
+</main>
+<div id="ftr"></div>
+<script src="/assets/app.js"></script>
+<script>
+const id = location.pathname.split('/').pop();
+let a = null, fs = 1.12;
+const $ = i => document.getElementById(i);
+
+// "## heading", "> quote", blank line = new paragraph. Everything is escaped, so it is safe.
+function bodyHtml(t) {
+  return t.replace(/\r/g, '').split(/\n{2,}/).map(p => {
+    p = p.trim(); if (!p) return '';
+    if (p.startsWith('## ')) return `<h2>${App.esc(p.slice(3))}</h2>`;
+    if (p.startsWith('> ')) return `<blockquote>${App.esc(p.slice(2)).replace(/\n/g, '<br>')}</blockquote>`;
+    return `<p>${App.esc(p).replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+}
+function draw() {
+  const root = $('art');
+  if (!a) { root.innerHTML = `<div class="empty"><h2 style="font-family:var(--serif)">${App.t('articleGone')}</h2><p>${App.t('articleGoneSub')}</p><p style="margin-top:16px"><a class="btn" href="/">${App.t('back')}</a></p></div>`; return; }
+  root.className = 'art ' + (a.lang === 'ur' ? 'ulang' : ''); root.dir = App.dirOf(a);
+  const dt = new Date(a.at);
+  const when = App.lang === 'ur' ? App.fmtDate(dt.toISOString().slice(0, 10)) : dt.toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' });
+  root.innerHTML = `
+    <a class="kicker" href="/category/${a.category}" dir="${App.lang === 'ur' ? 'rtl' : 'ltr'}">${App.catName(a.category)}</a>
+    <h1>${App.esc(a.title)}</h1>
+    ${a.summary ? `<p class="sum">${App.esc(a.summary)}</p>` : ''}
+    <div class="byline" dir="${App.lang === 'ur' ? 'rtl' : 'ltr'}"><span>${App.t('by')} <b>${App.esc(a.author)}</b></span><span>${when}</span><span>${App.num(a.views)} ${App.t('views')}</span></div>
+    ${a.image ? `<figure class="art-img"><img src="${a.image}" alt="${App.esc(a.title)}">${a.caption ? `<figcaption>${App.esc(a.caption)}</figcaption>` : ''}</figure>` : ''}
+    <div class="art-body" id="body" style="--fs:${fs}rem">${bodyHtml(a.body)}</div>
+    <div class="tools-row" dir="${App.lang === 'ur' ? 'rtl' : 'ltr'}">
+      <span class="lbl">${App.t('shareStory')}</span>
+      <a class="sbtn wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(a.title + ' ' + location.href)}">WhatsApp</a>
+      <a class="sbtn" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}">Facebook</a>
+      <a class="sbtn" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?url=${encodeURIComponent(location.href)}&text=${encodeURIComponent(a.title)}">X</a>
+      <button class="sbtn" id="cp">${App.t('copyLink')}</button>
+      <button class="sbtn" onclick="print()">🖨</button>
+      <span class="lbl" style="margin-inline-start:12px">${App.t('textSize')}</span>
+      <button class="sbtn" id="fm">A−</button><button class="sbtn" id="fp">A+</button>
+    </div>`;
+  $('cp').onclick = async () => { try { await navigator.clipboard.writeText(location.href); App.toast(App.t('copied')); } catch { prompt('', location.href); } };
+  const size = d => { fs = Math.min(1.7, Math.max(.95, fs + d)); $('body').style.setProperty('--fs', fs + 'rem'); };
+  $('fm').onclick = () => size(-.08); $('fp').onclick = () => size(.08);
+}
+async function load() {
+  try { a = await App.api('/api/articles/' + id); } catch { a = null; }
+  draw();
+  if (!a) return;
+  try { if (!sessionStorage.getItem('a' + id)) { sessionStorage.setItem('a' + id, 1); fetch(`/api/articles/${id}/view`, { method: 'POST' }); } } catch {}
+  try {
+    const r = await App.api(`/api/articles?category=${a.category}&exclude=${a.id}&limit=4&lang=${a.lang}`);
+    $('rel').hidden = !r.items.length; $('relT').textContent = App.t('related');
+    $('relG').innerHTML = r.items.map(x => App.cardHtml(x, { size: 'm', showCat: false, summary: false })).join('');
+  } catch {}
+}
+window.addEventListener('langchange', () => { draw(); $('relT').textContent = App.t('related'); });
+App.mount('');
+load();
+</script>
+</body>
+</html>
