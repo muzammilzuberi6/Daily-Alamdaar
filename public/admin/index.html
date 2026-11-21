@@ -230,32 +230,73 @@ function setFile(i, f) {
   if (!/^image\/(jpeg|png|webp)$/.test(f.type)) return toast('Only JPG, PNG or WebP images');
   state.slots[i] = { key: 'n' + ++uid, file: f, url: URL.createObjectURL(f) }; drawSlots();
 }
+/* ---- browser-side image prep: keeps every upload small (host limits) and converts PDFs here, not on the server ---- */
+async function canvasBlob(c, q) {
+  let b = await new Promise(r => c.toBlob(r, 'image/webp', q));
+  if (!b || b.type !== 'image/webp') b = await new Promise(r => c.toBlob(r, 'image/jpeg', q));
+  if (!b) throw new Error('This browser could not prepare the image');
+  return b;
+}
+async function toWebp(file, maxW, q) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const sc = Math.min(1, maxW / bmp.width);
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return canvasBlob(c, q);
+}
+let pdfjsP;
+function loadPdfJs() {
+  return pdfjsP ||= new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(pdfjsLib); };
+    s.onerror = () => { pdfjsP = null; rej(new Error('Could not load the PDF reader. Check your internet connection.')); };
+    document.head.appendChild(s);
+  });
+}
+async function pdfToBlobs(file, onPage) {
+  const lib = await loadPdfJs(), doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise, out = [];
+  const n = Math.min(doc.numPages, 24);
+  for (let i = 1; i <= n; i++) {
+    const pg = await doc.getPage(i), base = pg.getViewport({ scale: 1 }), vp = pg.getViewport({ scale: Math.min(2200 / base.width, 4) });
+    const c = document.createElement('canvas'); c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+    const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    await pg.render({ canvasContext: ctx, viewport: vp }).promise;
+    out.push(await canvasBlob(c, .86)); onPage && onPage(i, n);
+  }
+  return out;
+}
+async function postPage(date, blob, name) {
+  const fd = new FormData(); fd.append('date', date); fd.append('image', blob, name);
+  return (await api('/api/admin/pages', { method: 'POST', body: fd })).id;
+}
 async function save() {
   const s = state;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return toast('Choose a valid date');
   const filled = s.pdf ? [] : s.slots.filter(x => x.url);
   if (!filled.length && !s.pdf) return toast('Add at least one page');
   if (!s.pdf && filled.length !== 8 && !confirm(`This edition has ${filled.length} pages (normally 8). Continue?`)) return;
-  const fd = new FormData();
-  fd.append('date', s.date); fd.append('vol', s.vol); fd.append('issue', s.issue);
-  fd.append('published', s.published);
-  fd.append('order', JSON.stringify(filled.map(x => x.key)));
-  filled.forEach(x => x.file && fd.append('page_' + x.key, x.file, x.file.name));
-  if (s.pdf) fd.append('pdf', s.pdf, s.pdf.name);
-  const btn = $('#save'), prog = $('#prog'); btn.disabled = true; btn.textContent = s.pdf ? 'Uploading & converting PDF… (may take a minute)' : 'Uploading…'; prog.style.display = 'block';
-  await new Promise(res => {
-    const xhr = new XMLHttpRequest(); xhr.open('POST', '/api/admin/editions');
-    xhr.upload.onprogress = e => e.lengthComputable && ($('#prog i').style.width = (e.loaded / e.total * 100) + '%');
-    xhr.onload = async () => {
-      let j = {}; try { j = JSON.parse(xhr.responseText); } catch {}
-      if (xhr.status === 401) showLogin();
-      else if (xhr.status >= 400) { toast(j.error || 'Upload failed'); btn.disabled = false; btn.textContent = 'Try again'; prog.style.display = 'none'; }
-      else { toast(s.published ? 'Published! Newspaper is live.' : 'Saved as draft'); await refresh(); await newEdition(); scrollTo({ top: 0, behavior: 'smooth' }); }
-      res();
-    };
-    xhr.onerror = () => { toast('Network error'); btn.disabled = false; btn.textContent = 'Try again'; res(); };
-    xhr.send(fd);
-  });
+  const btn = $('#save'), prog = $('#prog'); btn.disabled = true; prog.style.display = 'block';
+  const step = (txt, frac) => { btn.textContent = txt; $('#prog i').style.width = (frac * 100) + '%'; };
+  try {
+    const order = [];
+    if (s.pdf) {
+      step('Reading PDF…', .03);
+      const blobs = await pdfToBlobs(s.pdf, (i, n) => step(`Converting PDF page ${i}/${n}…`, .03 + .4 * i / n));
+      for (let i = 0; i < blobs.length; i++) { step(`Uploading page ${i + 1}/${blobs.length}…`, .45 + .5 * i / blobs.length); order.push(await postPage(s.date, blobs[i], `page-${i + 1}.webp`)); }
+    } else {
+      for (let i = 0; i < filled.length; i++) {
+        const x = filled[i];
+        if (!x.file) { order.push(x.key); continue; } // page already on the server
+        step(`Uploading page ${i + 1}/${filled.length}…`, i / filled.length);
+        order.push(await postPage(s.date, await toWebp(x.file, 2200, .86), `page-${i + 1}.webp`));
+      }
+    }
+    step('Saving…', .97);
+    await api('/api/admin/editions', { method: 'POST', body: JSON.stringify({ date: s.date, vol: s.vol, issue: s.issue, published: s.published, order }) });
+    toast(s.published ? 'Published! Newspaper is live.' : 'Saved as draft');
+    await refresh(); await newEdition(); scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { toast(e.message || 'Upload failed'); btn.disabled = false; btn.textContent = 'Try again'; prog.style.display = 'none'; }
 }
 
 /* ---------- news stories ---------- */
@@ -331,7 +372,7 @@ async function saveStory() {
   ['category', 'lang', 'author', 'title', 'summary', 'body', 'caption', 'published', 'featured', 'breaking'].forEach(k => fd.append(k, s[k]));
   fd.append('at', new Date(s.at).toISOString());
   if (s._rm) fd.append('removeImage', 'true');
-  if (s._file) fd.append('image', s._file, s._file.name);
+  if (s._file) fd.append('image', await toWebp(s._file, 1600, .85), 'photo.webp');
   const btn = $('#sSave'); btn.disabled = true; btn.textContent = 'Saving…';
   try { await api(s.id ? '/api/admin/articles/' + s.id : '/api/admin/articles', { method: s.id ? 'PUT' : 'POST', body: fd }); toast(s.published ? 'Story is live!' : 'Saved as draft'); await refreshArticles(); newStory(); scrollTo({ top: 0, behavior: 'smooth' }); }
   catch (e) { toast(e.message); btn.disabled = false; btn.textContent = 'Try again'; }
