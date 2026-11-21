@@ -66,7 +66,7 @@ app.disable('x-powered-by');
 
 // cloud mode: load data before each request and save it before the response leaves
 app.use(async (req, res, next) => {
-  if (!store.remote) return next();
+  if (!store.remote && !process.env.VERCEL) return next();
   try { await store.ready(); } catch (e) { console.error(e); return res.status(503).json({ error: 'Storage unavailable. Try again.' }); }
   const end = res.end;
   res.end = function (...args) { store.flush().catch(e => console.error('flush failed', e)).finally(() => end.apply(res, args)); return res; };
